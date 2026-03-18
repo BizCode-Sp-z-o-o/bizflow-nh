@@ -2,6 +2,15 @@
 
 KSeF integration platform for SAP Business One — automatic invoice submission to Poland's National e-Invoice System.
 
+> [!IMPORTANT]
+> **This is an installer only, not open-source software.**
+> The container images are proprietary and require a commercial license from BizCode.
+> This repository contains only the deployment scripts (Docker Compose, installer, control script).
+>
+> **Interested?** Contact us at **info@bizcode.pl** to discuss licensing and pricing.
+>
+> [www.bizcode.pl](https://www.bizcode.pl)
+
 ## Quick Start
 
 ```bash
@@ -12,6 +21,7 @@ chmod +x install.sh ctl.sh
 ```
 
 The installer will guide you through configuration and start all services.
+You will need ACR credentials provided by BizCode with your license.
 
 ## Architecture
 
@@ -59,3 +69,6 @@ The installer will guide you through configuration and start all services.
 ## License
 
 Proprietary — BizCode Sp. z o.o. All rights reserved.
+
+This software is not open-source. Unauthorized use, copying, or distribution is prohibited.
+Contact **info@bizcode.pl** for licensing.
