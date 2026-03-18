@@ -1,0 +1,161 @@
+name: bizflow-nh
+
+services:
+  # ── Databases ──────────────────────────────────────────
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: bizflownh
+      POSTGRES_USER: bizflownh
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U bizflownh"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  # ── Messaging ──────────────────────────────────────────
+  rabbitmq:
+    image: rabbitmq:4-management-alpine
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-bizflownh}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD}
+    volumes:
+      - rabbitmqdata:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "check_port_connectivity"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── OpenBao (Secrets Management) ────────────────────────
+  openbao:
+    image: openbao/openbao:2.5.0
+    restart: unless-stopped
+    cap_add:
+      - IPC_LOCK
+    environment:
+      BAO_DEV_ROOT_TOKEN_ID: ${OPENBAO_TOKEN:-dev-only-token}
+      BAO_DEV_LISTEN_ADDRESS: 0.0.0.0:8200
+    command: server -dev
+    volumes:
+      - openbao_data:/openbao/data
+    healthcheck:
+      test: ["CMD-SHELL", "bao status -address=http://127.0.0.1:8200 2>&1 | grep -q 'Sealed.*false' || wget -q --spider http://127.0.0.1:8200/v1/sys/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+
+  # ── BizFlowNH API (.NET 9) ───────────────────────────────
+  api:
+    image: bizcode.azurecr.io/bizflownh-api:latest
+    restart: unless-stopped
+    ports:
+      - "${API_PORT:-5001}:8080"
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ConnectionStrings__DefaultConnection: "Host=db;Port=5432;Database=bizflownh;Username=bizflownh;Password=${POSTGRES_PASSWORD}"
+      Jwt__Key: ${JWT_KEY}
+      Jwt__Issuer: BizFlowNH
+      Jwt__Audience: BizFlowNH
+      Cors__FrontendUrls__0: ${LANDING_URL:-http://localhost:4321}
+      Cors__FrontendUrls__1: ${DASHBOARD_URL:-http://localhost:4322}
+      KSeF__BaseUrl: ${KSEF_BASE_URL:-https://ksef-test.mf.gov.pl}
+      Pdf__SidecarUrl: http://pdf-sidecar:3100
+      RabbitMQ__Host: rabbitmq
+      RabbitMQ__Username: ${RABBITMQ_USER:-bizflownh}
+      RabbitMQ__Password: ${RABBITMQ_PASSWORD}
+      OpenBao__Url: http://openbao:8200
+      OpenBao__RoleId: ${OPENBAO_ROLE_ID:-}
+      OpenBao__SecretId: ${OPENBAO_SECRET_ID:-}
+      OpenBao__Token: ${OPENBAO_TOKEN:-dev-only-token}
+    depends_on:
+      db:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      pdf-sidecar:
+        condition: service_healthy
+      openbao:
+        condition: service_healthy
+
+  # ── PDF Sidecar (Node.js) ──────────────────────────────
+  pdf-sidecar:
+    image: bizcode.azurecr.io/bizflownh-pdf-sidecar:latest
+    restart: unless-stopped
+    expose:
+      - "3100"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:3100/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  # ── Dashboard (React) ─────────────────────────────────
+  dashboard:
+    image: bizcode.azurecr.io/bizflownh-dashboard:latest
+    restart: unless-stopped
+    ports:
+      - "${DASHBOARD_PORT:-4322}:4322"
+    depends_on:
+      - api
+
+  # ── Auto-update ────────────────────────────────────────
+  watchtower:
+    image: containrrr/watchtower:latest
+    restart: unless-stopped
+    environment:
+      WATCHTOWER_CLEANUP: "true"
+      WATCHTOWER_POLL_INTERVAL: ${WATCHTOWER_INTERVAL:-300}
+      WATCHTOWER_LABEL_ENABLE: "false"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+
+  # ── DB Backup ──────────────────────────────────────────
+  db-backup:
+    image: tiredofit/db-backup:latest
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      TIMEZONE: Europe/Warsaw
+      CONTAINER_ENABLE_MONITORING: "FALSE"
+      DB01_TYPE: pgsql
+      DB01_HOST: db
+      DB01_NAME: bizflownh
+      DB01_USER: bizflownh
+      DB01_PASS: ${POSTGRES_PASSWORD}
+      DB01_BACKUP_INTERVAL: 360
+      DB01_BACKUP_BEGIN: "0300"
+      DB01_COMPRESSION: zstd
+      DB01_COMPRESSION_LEVEL: 3
+      DB01_CHECKSUM: SHA1
+      DB01_CLEANUP_TIME: 10080
+    volumes:
+      - db_backups:/backup
+
+volumes:
+  pgdata:
+  redisdata:
+  rabbitmqdata:
+  openbao_data:
+  db_backups:
