@@ -1,0 +1,38 @@
+name: Bug Report
+description: Report an issue with BizFlow NH installation or operation
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Note:** This is for licensed customers only. If you don't have a license, please contact info@bizcode.pl first.
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: "Run `docker inspect bizflow-nh-api-1 --format '{{.Config.Image}}'` to get the image version"
+      placeholder: "bizcode.azurecr.io/bizflownh-api:latest"
+    validations:
+      required: true
+  - type: dropdown
+    id: mode
+    attributes:
+      label: Deployment mode
+      options:
+        - dev
+        - prod
+    validations:
+      required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+      placeholder: Describe the issue
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs
+      description: "Run `./ctl.sh logs api` and paste relevant output"
+      render: shell

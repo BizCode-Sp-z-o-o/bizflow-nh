@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Licensing & Sales
+    url: mailto:info@bizcode.pl
+    about: Interested in BizFlow NH? Contact us for licensing and pricing.
+  - name: BizCode Website
+    url: https://www.bizcode.pl
+    about: Learn more about BizCode solutions for SAP Business One.

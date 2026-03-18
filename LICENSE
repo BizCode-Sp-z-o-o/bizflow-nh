@@ -1,0 +1,27 @@
+BizFlow NH — Proprietary Software License
+
+Copyright (c) 2026 BizCode Sp. z o.o. All rights reserved.
+
+This software and associated documentation files (the "Software") are the
+proprietary property of BizCode Sp. z o.o. ("BizCode").
+
+NOTICE: This repository contains only deployment scripts and configuration
+files. The container images referenced herein are proprietary and distributed
+separately under commercial license.
+
+Permission is hereby granted to licensed customers of BizCode to use the
+deployment scripts in this repository solely for the purpose of installing
+and operating BizFlow NH under the terms of their commercial license agreement.
+
+The following restrictions apply:
+- You may NOT use, copy, modify, or distribute the Software or the associated
+  container images without a valid commercial license from BizCode.
+- You may NOT reverse-engineer, decompile, or disassemble the container images.
+- You may NOT sublicense, sell, or transfer the Software to third parties.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED. IN NO EVENT SHALL BIZCODE BE LIABLE FOR ANY CLAIM, DAMAGES, OR OTHER
+LIABILITY ARISING FROM THE USE OF THE SOFTWARE.
+
+For licensing inquiries, contact: info@bizcode.pl
+Website: https://www.bizcode.pl
