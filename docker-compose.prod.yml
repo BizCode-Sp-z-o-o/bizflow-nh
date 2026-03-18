@@ -1,0 +1,17 @@
+services:
+  # ── Reverse Proxy (NPMplus) — SSL termination + domain routing ──
+  npm:
+    image: zoeyvid/npmplus:latest
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "81:81"
+    volumes:
+      - npm_data:/data
+    depends_on:
+      - api
+      - dashboard
+
+volumes:
+  npm_data:

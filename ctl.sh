@@ -8,41 +8,47 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
 
+# Detect mode
+COMPOSE_CMD="docker compose"
+if [ -f .mode ] && [ "$(cat .mode)" = "prod" ]; then
+    COMPOSE_CMD="docker compose -f docker-compose.yml -f docker-compose.prod.yml"
+fi
+
 case "${1:-help}" in
     start)
         echo "Starting BizFlow NH..."
-        docker compose up -d
+        $COMPOSE_CMD up -d
         ;;
     stop)
         echo "Stopping BizFlow NH..."
-        docker compose down
+        $COMPOSE_CMD down
         ;;
     restart)
         echo "Restarting BizFlow NH..."
-        docker compose down
-        docker compose up -d
+        $COMPOSE_CMD down
+        $COMPOSE_CMD up -d
         ;;
     status)
-        docker compose ps
+        $COMPOSE_CMD ps
         ;;
     logs)
         shift
-        docker compose logs -f "${@:---tail=100}"
+        $COMPOSE_CMD logs -f "${@:---tail=100}"
         ;;
     update)
         echo "Pulling latest images..."
         source .env
         echo "$ACR_PASSWORD" | docker login bizcode.azurecr.io -u "$ACR_USERNAME" --password-stdin >/dev/null 2>&1
-        docker compose pull
+        $COMPOSE_CMD pull
         echo "Recreating containers..."
-        docker compose up -d --remove-orphans
+        $COMPOSE_CMD up -d --remove-orphans
         echo "Update complete."
         ;;
     backup)
         BACKUP_DIR="backups/$(date +%Y%m%d_%H%M%S)"
         mkdir -p "$BACKUP_DIR"
         echo "Backing up database..."
-        docker compose exec -T db pg_dump -U bizflownh bizflownh | gzip > "$BACKUP_DIR/bizflownh.sql.gz"
+        $COMPOSE_CMD exec -T db pg_dump -U bizflownh bizflownh | gzip > "$BACKUP_DIR/bizflownh.sql.gz"
         echo "Backup saved: $BACKUP_DIR/bizflownh.sql.gz"
         ;;
     restore)
@@ -51,7 +57,7 @@ case "${1:-help}" in
             exit 1
         fi
         echo "Restoring database from $2..."
-        gunzip -c "$2" | docker compose exec -T db psql -U bizflownh -d bizflownh
+        gunzip -c "$2" | $COMPOSE_CMD exec -T db psql -U bizflownh -d bizflownh
         echo "Restore complete."
         ;;
     help|*)

@@ -1,4 +1,5 @@
 .env
+.mode
 docker-compose.override.yml
 .profiles
 backups/

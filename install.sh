@@ -63,6 +63,19 @@ DOCKER_VERSION=$(docker --version | sed -n 's/.*version \([0-9]*\.[0-9]*\.[0-9]*
 info "Docker ${DOCKER_VERSION:-unknown}"
 info "Docker Compose $(docker compose version --short 2>/dev/null)"
 
+# ── Deployment mode ──
+header "Deployment mode"
+echo "  1) dev  — direct port access, no SSL, for development/testing"
+echo "  2) prod — Nginx Proxy Manager with SSL, domain-based routing"
+echo ""
+ask MODE "Choose mode (1=dev, 2=prod)" "1"
+case "$MODE" in
+    1|dev)  MODE="dev" ;;
+    2|prod) MODE="prod" ;;
+    *) error "Invalid mode" ;;
+esac
+info "Mode: $MODE"
+
 # ── ACR Credentials ──
 header "Azure Container Registry credentials"
 echo "  These are provided by BizCode with your license."
@@ -92,8 +105,18 @@ info "KSeF: $KSEF_BASE_URL"
 
 # ── Frontend URLs ──
 header "Frontend URLs (for CORS and links)"
-ask DASHBOARD_URL "Dashboard URL" "http://localhost:4322"
-ask LANDING_URL "Landing page URL (optional)" "$DASHBOARD_URL"
+if [ "$MODE" = "prod" ]; then
+    ask BASE_DOMAIN "Base domain (e.g. bizflow.klient.pl)" ""
+    ask LETSENCRYPT_EMAIL "Email for Let's Encrypt" ""
+    DASHBOARD_URL="https://${BASE_DOMAIN}"
+    LANDING_URL="https://${BASE_DOMAIN}"
+    info "Dashboard will be available at $DASHBOARD_URL"
+else
+    ask DASHBOARD_URL "Dashboard URL" "http://localhost:4322"
+    LANDING_URL="$DASHBOARD_URL"
+    BASE_DOMAIN=""
+    LETSENCRYPT_EMAIL=""
+fi
 
 # ── Generate secrets ──
 header "Generating secrets..."
@@ -134,6 +157,11 @@ KSEF_BASE_URL=${KSEF_BASE_URL}
 # ── OpenBao ──
 OPENBAO_TOKEN=${OPENBAO_TOKEN}
 
+# ── Mode ──
+MODE=${MODE}
+BASE_DOMAIN=${BASE_DOMAIN}
+LETSENCRYPT_EMAIL=${LETSENCRYPT_EMAIL}
+
 # ── Frontend ──
 DASHBOARD_URL=${DASHBOARD_URL}
 LANDING_URL=${LANDING_URL}
@@ -148,14 +176,23 @@ ENVFILE
 
 info ".env generated"
 
+# ── Compose command ──
+COMPOSE_CMD="docker compose"
+if [ "$MODE" = "prod" ]; then
+    COMPOSE_CMD="docker compose -f docker-compose.yml -f docker-compose.prod.yml"
+fi
+
+# Save for ctl.sh
+echo "$MODE" > .mode
+
 # ── Pull images ──
 header "Pulling images..."
-docker compose pull 2>&1 | tail -5
+$COMPOSE_CMD pull 2>&1 | tail -5
 info "Images pulled"
 
 # ── Start ──
 header "Starting BizFlow NH..."
-if ! docker compose up -d 2>&1; then
+if ! $COMPOSE_CMD up -d 2>&1; then
     warn "Some containers may have failed to start. Check: ./ctl.sh status"
 fi
 
@@ -174,7 +211,7 @@ while IFS= read -r line; do
         warn "$name — $state"
         FAILED=$((FAILED + 1))
     fi
-done < <(docker compose ps --format '{{.Name}} {{.State}}' 2>/dev/null)
+done < <($COMPOSE_CMD ps --format '{{.Name}} {{.State}}' 2>/dev/null)
 
 echo ""
 if [ "$FAILED" -gt 0 ]; then
@@ -199,7 +236,13 @@ echo ""
 echo -e "${BOLD}Services:${NC}"
 echo -e "  Dashboard:  ${GREEN}${DASHBOARD_URL}${NC}"
 echo -e "  API:        ${GREEN}http://localhost:${API_PORT:-5001}${NC}"
-echo -e "  RabbitMQ:   ${GREEN}http://localhost:15672${NC}  (bizflownh / ${RABBITMQ_PASSWORD})"
+if [ "$MODE" = "prod" ]; then
+    echo -e "  NPM:        ${GREEN}http://localhost:81${NC}  (admin@example.com / changeme)"
+    echo ""
+    echo -e "  ${YELLOW}Configure proxy hosts in Nginx Proxy Manager:${NC}"
+    echo -e "    ${BASE_DOMAIN}       →  dashboard:4322"
+    echo -e "    api.${BASE_DOMAIN}   →  api:8080"
+fi
 echo ""
 echo -e "${BOLD}Default login:${NC}"
 echo -e "  Email:    ${GREEN}admin@bizflownh.dev${NC}"
