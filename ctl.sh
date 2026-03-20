@@ -9,9 +9,12 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
 
 # Detect mode
-COMPOSE_CMD="docker compose"
-if [ -f .mode ] && [ "$(cat .mode)" = "prod" ]; then
-    COMPOSE_CMD="docker compose -f docker-compose.yml -f docker-compose.prod.yml"
+COMPOSE_CMD="docker compose -f docker-compose.yml"
+if grep -q 'ENABLE_MONITORING=true' .env 2>/dev/null; then
+    COMPOSE_CMD="$COMPOSE_CMD -f monitoring/docker-compose.monitoring.yml"
+fi
+if [ "$(cat .mode 2>/dev/null)" = "prod" ]; then
+    COMPOSE_CMD="$COMPOSE_CMD -f docker-compose.prod.yml"
 fi
 
 case "${1:-help}" in

@@ -76,6 +76,15 @@ case "$MODE" in
 esac
 info "Mode: $MODE"
 
+# ── Monitoring ──
+header "Monitoring stack (Grafana + Prometheus + Tempo + Dozzle)"
+ask ENABLE_MONITORING "Enable monitoring? (y/n)" "y"
+case "$ENABLE_MONITORING" in
+    y|Y|yes) ENABLE_MONITORING="true" ;;
+    *) ENABLE_MONITORING="false" ;;
+esac
+info "Monitoring: $ENABLE_MONITORING"
+
 # ── ACR Credentials ──
 header "Azure Container Registry credentials"
 echo "  These are provided by BizCode with your license."
@@ -179,14 +188,25 @@ DASHBOARD_PORT=4322
 
 # ── Auto-update (seconds, 0=disabled) ──
 WATCHTOWER_INTERVAL=300
+
+# ── Monitoring ──
+ENABLE_MONITORING=${ENABLE_MONITORING}
+GRAFANA_PORT=3001
+GRAFANA_URL=${GRAFANA_URL:-http://localhost:3001}
+DOZZLE_PORT=3002
 ENVFILE
 
 info ".env generated"
 
 # ── Compose command ──
 COMPOSE_CMD="docker compose"
+if [ "$ENABLE_MONITORING" = "true" ]; then
+    COMPOSE_CMD="$COMPOSE_CMD -f docker-compose.yml -f monitoring/docker-compose.monitoring.yml"
+else
+    COMPOSE_CMD="$COMPOSE_CMD -f docker-compose.yml"
+fi
 if [ "$MODE" = "prod" ]; then
-    COMPOSE_CMD="docker compose -f docker-compose.yml -f docker-compose.prod.yml"
+    COMPOSE_CMD="$COMPOSE_CMD -f docker-compose.prod.yml"
 fi
 
 # Save for ctl.sh
@@ -249,6 +269,10 @@ if [ "$MODE" = "prod" ]; then
     echo -e "  ${YELLOW}Configure proxy hosts in Nginx Proxy Manager:${NC}"
     echo -e "    ${BASE_DOMAIN}       →  dashboard:4322"
     echo -e "    api.${BASE_DOMAIN}   →  api:8080"
+fi
+if [ "$ENABLE_MONITORING" = "true" ]; then
+    echo -e "  Grafana:    ${GREEN}http://localhost:${GRAFANA_PORT:-3001}${NC}  (admin / admin)"
+    echo -e "  Dozzle:     ${GREEN}http://localhost:${DOZZLE_PORT:-3002}${NC}  (admin / admin)"
 fi
 echo ""
 echo -e "${BOLD}Default login:${NC}"

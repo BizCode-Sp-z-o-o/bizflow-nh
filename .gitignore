@@ -3,3 +3,4 @@
 docker-compose.override.yml
 .profiles
 backups/
+monitoring/grafana_data/

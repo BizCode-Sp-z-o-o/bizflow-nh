@@ -1,0 +1,6 @@
+users:
+  admin:
+    name: "Admin"
+    # Default password: admin — change in production!
+    # Generate with: htpasswd -nbBC 11 "" 'your-password' | cut -d: -f2
+    password: "$2a$11$RSPvi1ReeO9pDa8ZxyIe9u8yZ7.Bo8FRZ6oAx2sFiYM6cdITaHr4S"
