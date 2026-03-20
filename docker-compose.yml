@@ -43,6 +43,22 @@ services:
       timeout: 5s
       retries: 5
 
+  # ── Object Storage ────────────────────────────────────
+  minio:
+    image: minio/minio:latest
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY:-minioadmin}
+    volumes:
+      - miniodata:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   # ── OpenBao (Secrets Management) ────────────────────────
   openbao:
     image: openbao/openbao:2.5.0
@@ -85,12 +101,18 @@ services:
       OpenBao__RoleId: ${OPENBAO_ROLE_ID:-}
       OpenBao__SecretId: ${OPENBAO_SECRET_ID:-}
       OpenBao__Token: ${OPENBAO_TOKEN:-dev-only-token}
+      ObjectStorage__Provider: minio
+      ObjectStorage__Endpoint: minio:9000
+      ObjectStorage__AccessKey: ${MINIO_ACCESS_KEY:-minioadmin}
+      ObjectStorage__SecretKey: ${MINIO_SECRET_KEY:-minioadmin}
     depends_on:
       db:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy
       redis:
+        condition: service_healthy
+      minio:
         condition: service_healthy
       pdf-sidecar:
         condition: service_healthy
@@ -157,5 +179,6 @@ volumes:
   pgdata:
   redisdata:
   rabbitmqdata:
+  miniodata:
   openbao_data:
   db_backups:

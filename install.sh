@@ -124,11 +124,14 @@ POSTGRES_PASSWORD="bizflownh-pg-$(openssl rand -hex 8)"
 RABBITMQ_PASSWORD="bizflownh-rmq-$(openssl rand -hex 8)"
 JWT_KEY="$(openssl rand -base64 48)"
 OPENBAO_TOKEN="dev-$(openssl rand -hex 12)"
+MINIO_ACCESS_KEY="bizflownh-$(openssl rand -hex 6)"
+MINIO_SECRET_KEY="$(openssl rand -base64 32)"
 
 info "PostgreSQL password generated"
 info "RabbitMQ password generated"
 info "JWT key generated"
 info "OpenBao token generated"
+info "MinIO credentials generated"
 
 # ── Generate .env ──
 header "Generating configuration..."
@@ -156,6 +159,10 @@ KSEF_BASE_URL=${KSEF_BASE_URL}
 
 # ── OpenBao ──
 OPENBAO_TOKEN=${OPENBAO_TOKEN}
+
+# ── MinIO (Object Storage) ──
+MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY}
+MINIO_SECRET_KEY=${MINIO_SECRET_KEY}
 
 # ── Mode ──
 MODE=${MODE}
