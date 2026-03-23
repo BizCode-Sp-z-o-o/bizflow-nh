@@ -322,9 +322,22 @@ info "Images pulled"
 
 # ── Start ──
 header "Starting BizFlow NH..."
-if ! $COMPOSE_CMD up -d 2>&1; then
-    warn "Some containers may have failed to start. Check: ./ctl.sh status"
-fi
+$COMPOSE_CMD up -d 2>&1 || true
+
+# Wait for health dependencies, then retry failed containers
+echo -e "\n  Waiting for services to become healthy..."
+for i in $(seq 1 12); do
+    UNHEALTHY=$($COMPOSE_CMD ps --format '{{.State}}' 2>/dev/null | grep -cv "running" || true)
+    if [ "$UNHEALTHY" -eq 0 ]; then
+        break
+    fi
+    echo -ne "\r  Waiting... ${i}/12 ($UNHEALTHY not ready) "
+    sleep 5
+done
+echo ""
+
+# Retry — picks up containers that failed due to dependency timing
+$COMPOSE_CMD up -d 2>&1 || true
 
 # ── Verify ──
 header "Verifying services..."
