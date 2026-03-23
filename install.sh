@@ -359,6 +359,7 @@ if [ "$MODE" = "prod" ]; then
             info "API is ready"
             break
         fi
+        echo -ne "\r  Waiting for API... ${i}/30 "
         sleep 2
     done
 else
@@ -367,9 +368,11 @@ else
             info "API is ready"
             break
         fi
+        echo -ne "\r  Waiting for API... ${i}/30 "
         sleep 2
     done
 fi
+echo ""
 
 # ── Summary ──
 header "Installation complete!"
