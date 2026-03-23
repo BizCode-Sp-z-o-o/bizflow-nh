@@ -355,7 +355,7 @@ header "Waiting for API..."
 if [ "$MODE" = "prod" ]; then
     # In prod, API port is not exposed — check via docker exec
     for i in $(seq 1 30); do
-        if $COMPOSE_CMD exec -T api wget -q --spider http://localhost:8080/health 2>/dev/null; then
+        if $COMPOSE_CMD exec -T api curl -sf http://localhost:8080/health >/dev/null 2>&1; then
             info "API is ready"
             break
         fi
