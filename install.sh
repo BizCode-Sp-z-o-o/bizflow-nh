@@ -355,7 +355,7 @@ echo ""
 if [ -n "$BAO_CONTAINER" ]; then
     BAO_STATUS=$(docker exec "$BAO_CONTAINER" bao status -address=http://127.0.0.1:8200 -format=json < /dev/null 2>&1 || true)
     debug "BAO_STATUS (first 200 chars): ${BAO_STATUS:0:200}"
-    BAO_INITIALIZED=$(echo "$BAO_STATUS" | grep -o '"initialized":[a-z]*' | cut -d: -f2 || echo "unknown")
+    BAO_INITIALIZED=$(echo "$BAO_STATUS" | grep -o '"initialized": *[a-z]*' | awk '{print $NF}' || echo "unknown")
     debug "BAO_INITIALIZED=${BAO_INITIALIZED}"
 
     if [ "$BAO_INITIALIZED" = "false" ]; then
@@ -397,7 +397,7 @@ if [ -n "$BAO_CONTAINER" ]; then
         fi
     elif [ "$BAO_INITIALIZED" = "true" ]; then
         # Already initialized — try to unseal if sealed
-        BAO_SEALED=$(echo "$BAO_STATUS" | grep -o '"sealed":[a-z]*' | cut -d: -f2 || echo "true")
+        BAO_SEALED=$(echo "$BAO_STATUS" | grep -o '"sealed": *[a-z]*' | awk '{print $NF}' || echo "true")
         if [ "$BAO_SEALED" = "true" ]; then
             UNSEAL_KEY=$(grep '^OPENBAO_UNSEAL_KEY=' .env 2>/dev/null | cut -d= -f2 || true)
             if [ -n "$UNSEAL_KEY" ]; then
