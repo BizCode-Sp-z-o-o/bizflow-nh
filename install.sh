@@ -376,7 +376,7 @@ if [ -n "$BAO_CONTAINER" ]; then
 
                 # Enable KV secrets engine
                 docker exec -e BAO_TOKEN="$ROOT_TOKEN" "$BAO_CONTAINER" \
-                    bao secrets enable -address=http://127.0.0.1:8200 -path=kv -version=2 kv < /dev/null >/dev/null 2>&1 || true
+                    bao secrets enable -address=http://127.0.0.1:8200 -path=secret -version=2 kv < /dev/null >/dev/null 2>&1 || true
 
                 # Save to .env
                 sed -i "s|^OPENBAO_TOKEN=.*|OPENBAO_TOKEN=${ROOT_TOKEN}|" .env
