@@ -96,7 +96,6 @@ services:
       Cors__FrontendUrls__1: ${API_URL:-http://localhost:5001}
       KSeF__BaseUrl: ${KSEF_BASE_URL:-https://ksef-test.mf.gov.pl}
       Pdf__SidecarUrl: http://pdf-sidecar:3100
-      Redis__ConnectionString: "redis:6379,password=${REDIS_PASSWORD:-changeme}"
       RabbitMQ__Host: rabbitmq
       RabbitMQ__Username: ${RABBITMQ_USER:-bizflownh}
       RabbitMQ__Password: ${RABBITMQ_PASSWORD}
