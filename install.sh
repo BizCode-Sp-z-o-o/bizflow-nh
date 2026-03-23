@@ -283,7 +283,9 @@ DOZZLE_PORT=3002
 DOZZLE_PASSWORD=${DOZZLE_PASSWORD}
 ENVFILE
 
-info ".env generated"
+chmod 600 .env
+chmod 600 "${HOME}/.docker/config.json" 2>/dev/null || true
+info ".env generated (permissions: owner-only)"
 
 # ── Generate Dozzle users file with random password ──
 if [ "$ENABLE_MONITORING" = "true" ]; then
