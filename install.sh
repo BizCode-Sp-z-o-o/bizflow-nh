@@ -339,7 +339,8 @@ BAO_CONTAINER=""
 for i in $(seq 1 20); do
     BAO_CONTAINER=$($COMPOSE_CMD ps --format '{{.Name}}' 2>/dev/null | grep openbao || true)
     if [ -n "$BAO_CONTAINER" ]; then
-        if docker exec -T "$BAO_CONTAINER" bao status -address=http://127.0.0.1:8200 -format=json 2>/dev/null | grep -q '"type"'; then
+        # bao status exits 2 when sealed — check for JSON output, not exit code
+        if docker exec "$BAO_CONTAINER" bao status -address=http://127.0.0.1:8200 -format=json 2>&1 | grep -q '"storage_type"'; then
             break
         fi
     fi
@@ -349,12 +350,12 @@ done
 echo ""
 if [ -n "$BAO_CONTAINER" ]; then
     # Check if already initialized (bao status returns json even when sealed, exit code 2)
-    BAO_STATUS=$(docker exec -T "$BAO_CONTAINER" bao status -address=http://127.0.0.1:8200 -format=json 2>/dev/null || true)
+    BAO_STATUS=$(docker exec "$BAO_CONTAINER" bao status -address=http://127.0.0.1:8200 -format=json 2>/dev/null || true)
     BAO_INITIALIZED=$(echo "$BAO_STATUS" | grep -o '"initialized":[a-z]*' | cut -d: -f2 || echo "unknown")
 
     if [ "$BAO_INITIALIZED" = "false" ]; then
         # Initialize with 1 key share, 1 threshold (simple setup)
-        INIT_OUTPUT=$(docker exec -T "$BAO_CONTAINER" bao operator init \
+        INIT_OUTPUT=$(docker exec "$BAO_CONTAINER" bao operator init \
             -address=http://127.0.0.1:8200 \
             -key-shares=1 -key-threshold=1 -format=json 2>/dev/null || echo '')
 
@@ -364,10 +365,10 @@ if [ -n "$BAO_CONTAINER" ]; then
 
             if [ -n "$UNSEAL_KEY" ] && [ -n "$ROOT_TOKEN" ]; then
                 # Unseal
-                docker exec -T "$BAO_CONTAINER" bao operator unseal -address=http://127.0.0.1:8200 "$UNSEAL_KEY" >/dev/null 2>&1
+                docker exec "$BAO_CONTAINER" bao operator unseal -address=http://127.0.0.1:8200 "$UNSEAL_KEY" >/dev/null 2>&1
 
                 # Enable KV secrets engine
-                docker exec -T -e BAO_TOKEN="$ROOT_TOKEN" "$BAO_CONTAINER" \
+                docker exec -e BAO_TOKEN="$ROOT_TOKEN" "$BAO_CONTAINER" \
                     bao secrets enable -address=http://127.0.0.1:8200 -path=kv -version=2 kv >/dev/null 2>&1 || true
 
                 # Save to .env
@@ -393,7 +394,7 @@ if [ -n "$BAO_CONTAINER" ]; then
         if [ "$BAO_SEALED" = "true" ]; then
             UNSEAL_KEY=$(grep '^OPENBAO_UNSEAL_KEY=' .env 2>/dev/null | cut -d= -f2 || true)
             if [ -n "$UNSEAL_KEY" ]; then
-                docker exec -T "$BAO_CONTAINER" bao operator unseal -address=http://127.0.0.1:8200 "$UNSEAL_KEY" >/dev/null 2>&1
+                docker exec "$BAO_CONTAINER" bao operator unseal -address=http://127.0.0.1:8200 "$UNSEAL_KEY" >/dev/null 2>&1
                 info "OpenBao unsealed"
             else
                 warn "OpenBao is sealed but no unseal key found in .env"
