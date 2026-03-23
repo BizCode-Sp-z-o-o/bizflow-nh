@@ -21,12 +21,13 @@ chmod +x install.sh ctl.sh
 ```
 
 The installer will guide you through configuration and start all services.
+On Ubuntu/Debian, Docker will be installed automatically if not present.
 You will need ACR credentials provided by BizCode with your license.
 
 ## Requirements
 
-- Docker Engine 24+
-- Docker Compose v2
+- **Linux** (Ubuntu 22.04+ or Debian 12+ recommended) — the installer will auto-install Docker if missing
+- Docker Engine 24+ and Docker Compose v2 (installed automatically on Ubuntu/Debian)
 - ACR credentials (provided by BizCode)
 - Network access to SAP Business One Service Layer
 
