@@ -185,21 +185,6 @@ echo "$ACR_PASSWORD" | docker login bizcode.azurecr.io -u "$ACR_USERNAME" --pass
     || error "ACR login failed. Please check your credentials."
 info "ACR login successful"
 
-# ── KSeF Environment ──
-header "KSeF environment"
-echo "  1) test  — KSeF test environment (ksef-test.mf.gov.pl)"
-echo "  2) demo  — KSeF demo environment (ksef-demo.mf.gov.pl)"
-echo "  3) prod  — KSeF production (ksef.mf.gov.pl)"
-echo ""
-ask KSEF_ENV "Choose KSeF environment (1/2/3)" "1"
-case "$KSEF_ENV" in
-    1|test)  KSEF_BASE_URL="https://ksef-test.mf.gov.pl" ;;
-    2|demo)  KSEF_BASE_URL="https://ksef-demo.mf.gov.pl" ;;
-    3|prod)  KSEF_BASE_URL="https://ksef.mf.gov.pl" ;;
-    *) error "Invalid choice" ;;
-esac
-info "KSeF: $KSEF_BASE_URL"
-
 # ── Frontend URLs ──
 header "Frontend URLs (for CORS and links)"
 if [ "$MODE" = "prod" ]; then
@@ -251,8 +236,8 @@ RABBITMQ_PASSWORD=${RABBITMQ_PASSWORD}
 # ── JWT ──
 JWT_KEY=${JWT_KEY}
 
-# ── KSeF ──
-KSEF_BASE_URL=${KSEF_BASE_URL}
+# ── KSeF (default: test — change in dashboard per SAP company) ──
+KSEF_BASE_URL=https://ksef-test.mf.gov.pl
 
 # ── OpenBao ──
 OPENBAO_TOKEN=${OPENBAO_TOKEN}
@@ -370,8 +355,6 @@ echo -e "${BOLD}Default login:${NC}"
 echo -e "  Email:    ${GREEN}admin@bizflownh.dev${NC}"
 echo -e "  Password: ${GREEN}Admin123!${NC}"
 echo -e "  ${YELLOW}Change the password after first login!${NC}"
-echo ""
-echo -e "${BOLD}KSeF:${NC} $KSEF_BASE_URL"
 echo ""
 echo -e "${BOLD}Management:${NC}"
 echo "  ./ctl.sh start    — Start all services"
