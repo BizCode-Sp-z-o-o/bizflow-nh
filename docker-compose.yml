@@ -74,11 +74,11 @@ services:
       - ./openbao-config.hcl:/openbao/config/config.hcl:ro
       - ./openbao-entrypoint.sh:/openbao/scripts/entrypoint.sh:ro
     healthcheck:
-      test: ["CMD-SHELL", "bao status -address=http://127.0.0.1:8200 2>&1 | grep -q 'Sealed.*false' || wget -q --spider http://127.0.0.1:8200/v1/sys/health"]
+      test: ["CMD-SHELL", "bao status -address=http://127.0.0.1:8200 -format=json 2>&1 | grep -q '\"storage_type\"'"]
       interval: 10s
       timeout: 5s
-      retries: 10
-      start_period: 15s
+      retries: 5
+      start_period: 5s
 
   # ── BizFlowNH API (.NET 9) ───────────────────────────────
   api:
@@ -117,8 +117,6 @@ services:
       minio:
         condition: service_healthy
       pdf-sidecar:
-        condition: service_healthy
-      openbao:
         condition: service_healthy
 
   # ── PDF Sidecar (Node.js) ──────────────────────────────
