@@ -455,26 +455,23 @@ fi
 
 # ── Wait for API to be ready ──
 header "Waiting for API..."
+API_HEALTH_URL="http://localhost:${API_PORT:-5001}/health"
 if [ "$MODE" = "prod" ]; then
-    # In prod, API port is not exposed — check via docker exec
-    for i in $(seq 1 30); do
-        if $COMPOSE_CMD exec -T api curl -sf http://localhost:8080/health < /dev/null >/dev/null 2>&1; then
-            info "API is ready"
-            break
-        fi
-        echo -ne "\r  Waiting for API... ${i}/30 "
-        sleep 2
-    done
-else
-    for i in $(seq 1 30); do
-        if curl -sf "http://localhost:${API_PORT:-5001}/health" >/dev/null 2>&1; then
-            info "API is ready"
-            break
-        fi
-        echo -ne "\r  Waiting for API... ${i}/30 "
-        sleep 2
-    done
+    # In prod, API port is not on host — resolve container IP via Docker network
+    API_IP=$(docker inspect "$($COMPOSE_CMD ps -q api 2>/dev/null)" --format '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' 2>/dev/null || true)
+    if [ -n "$API_IP" ]; then
+        API_HEALTH_URL="http://${API_IP}:8080/health"
+    fi
+    debug "API health URL: $API_HEALTH_URL"
 fi
+for i in $(seq 1 30); do
+    if curl -sf "$API_HEALTH_URL" >/dev/null 2>&1; then
+        info "API is ready"
+        break
+    fi
+    echo -ne "\r  Waiting for API... ${i}/30 "
+    sleep 2
+done
 echo ""
 
 # ── Summary ──
