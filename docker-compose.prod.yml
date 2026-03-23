@@ -11,6 +11,8 @@ services:
   npm:
     image: zoeyvid/npmplus:latest
     restart: unless-stopped
+    environment:
+      TZ: Europe/Warsaw
     ports:
       - "80:80"
       - "443:443"

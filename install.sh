@@ -408,7 +408,8 @@ if [ "$MODE" = "prod" ]; then
     echo ""
     echo -e "${BOLD}Nginx Proxy Manager (admin panel):${NC}"
     NPM_SERVER_IP=$(curl -sf --max-time 3 https://ifconfig.me 2>/dev/null || hostname -I 2>/dev/null | awk '{print $1}' || echo "server")
-    echo -e "  ${GREEN}ssh -L 8181:127.0.0.1:81 user@${NPM_SERVER_IP}${NC}"
+    SSH_USER=$(whoami)
+    echo -e "  ${GREEN}ssh -L 8181:127.0.0.1:81 ${SSH_USER}@${NPM_SERVER_IP}${NC}"
     echo -e "  Then open ${GREEN}http://localhost:8181${NC} in your browser"
     echo -e "  First login: admin@example.com / changeme"
     echo ""
@@ -425,8 +426,9 @@ if [ "$ENABLE_MONITORING" = "true" ]; then
     if [ "$MODE" = "prod" ]; then
         echo ""
         SERVER_IP=$(curl -sf --max-time 3 https://ifconfig.me 2>/dev/null || hostname -I 2>/dev/null | awk '{print $1}' || echo "server")
+        MON_SSH_USER=$(whoami)
         echo -e "  ${YELLOW}Access via SSH tunnel:${NC}"
-        echo -e "  ${GREEN}ssh -L 3001:127.0.0.1:${GRAFANA_PORT:-3001} -L 3002:127.0.0.1:${DOZZLE_PORT:-3002} user@${SERVER_IP}${NC}"
+        echo -e "  ${GREEN}ssh -L 3001:127.0.0.1:${GRAFANA_PORT:-3001} -L 3002:127.0.0.1:${DOZZLE_PORT:-3002} ${MON_SSH_USER}@${SERVER_IP}${NC}"
         echo -e "  Then: Grafana ${GREEN}http://localhost:3001${NC}  Dozzle ${GREEN}http://localhost:3002${NC}"
     else
         echo -e "  Grafana:  ${GREEN}http://localhost:${GRAFANA_PORT:-3001}${NC}"
