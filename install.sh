@@ -329,24 +329,24 @@ $COMPOSE_CMD up -d 2>&1 || true
 # ── Initialize OpenBao (must happen before retry so healthcheck passes) ──
 header "Initializing OpenBao vault..."
 
-# Wait for OpenBao container to be running
+# Wait for OpenBao container to accept connections
+# Note: bao status returns exit code 2 when sealed (not 0), so we check output instead
 BAO_CONTAINER=""
-for i in $(seq 1 15); do
+for i in $(seq 1 20); do
     BAO_CONTAINER=$($COMPOSE_CMD ps --format '{{.Name}}' 2>/dev/null | grep openbao || true)
     if [ -n "$BAO_CONTAINER" ]; then
-        # Wait for it to accept connections (sealed is OK, just needs to listen)
-        if docker exec "$BAO_CONTAINER" bao status -address=http://127.0.0.1:8200 >/dev/null 2>&1; then
+        if docker exec "$BAO_CONTAINER" bao status -address=http://127.0.0.1:8200 -format=json 2>/dev/null | grep -q '"type"'; then
             break
         fi
     fi
-    echo -ne "\r  Waiting for OpenBao... ${i}/15 "
+    echo -ne "\r  Waiting for OpenBao... ${i}/20 "
     sleep 3
 done
 echo ""
 if [ -n "$BAO_CONTAINER" ]; then
-    # Check if already initialized
-    BAO_STATUS=$(docker exec "$BAO_CONTAINER" bao status -address=http://127.0.0.1:8200 -format=json 2>/dev/null || echo '{}')
-    BAO_INITIALIZED=$(echo "$BAO_STATUS" | grep -o '"initialized":[a-z]*' | cut -d: -f2 || echo "false")
+    # Check if already initialized (bao status returns json even when sealed, exit code 2)
+    BAO_STATUS=$(docker exec "$BAO_CONTAINER" bao status -address=http://127.0.0.1:8200 -format=json 2>/dev/null || true)
+    BAO_INITIALIZED=$(echo "$BAO_STATUS" | grep -o '"initialized":[a-z]*' | cut -d: -f2 || echo "unknown")
 
     if [ "$BAO_INITIALIZED" = "false" ]; then
         # Initialize with 1 key share, 1 threshold (simple setup)
@@ -383,7 +383,7 @@ if [ -n "$BAO_CONTAINER" ]; then
         else
             warn "OpenBao init failed — check: docker logs $BAO_CONTAINER"
         fi
-    else
+    elif [ "$BAO_INITIALIZED" = "true" ]; then
         # Already initialized — try to unseal if sealed
         BAO_SEALED=$(echo "$BAO_STATUS" | grep -o '"sealed":[a-z]*' | cut -d: -f2 || echo "true")
         if [ "$BAO_SEALED" = "true" ]; then
@@ -397,6 +397,8 @@ if [ -n "$BAO_CONTAINER" ]; then
         else
             info "OpenBao already initialized and unsealed"
         fi
+    else
+        warn "Could not determine OpenBao state — check: docker logs $BAO_CONTAINER"
     fi
 fi
 
