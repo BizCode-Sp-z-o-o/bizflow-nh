@@ -140,6 +140,13 @@ services:
     depends_on:
       - api
 
+  # ── Docs (Starlight) ──────────────────────────────────
+  docs:
+    image: bizcode.azurecr.io/bizflownh-docs:latest
+    restart: unless-stopped
+    ports:
+      - "${DOCS_PORT:-4323}:4323"
+
   # ── Auto-update ────────────────────────────────────────
   watchtower:
     image: containrrr/watchtower:latest
