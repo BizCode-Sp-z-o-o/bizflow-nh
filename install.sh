@@ -355,7 +355,7 @@ echo ""
 if [ -n "$BAO_CONTAINER" ]; then
     BAO_STATUS=$(docker exec "$BAO_CONTAINER" bao status -address=http://127.0.0.1:8200 -format=json < /dev/null 2>&1 || true)
     debug "BAO_STATUS (first 200 chars): ${BAO_STATUS:0:200}"
-    BAO_INITIALIZED=$(echo "$BAO_STATUS" | grep -o '"initialized": *[a-z]*' | awk '{print $NF}' || echo "unknown")
+    BAO_INITIALIZED=$(echo "$BAO_STATUS" | python3 -c "import sys,json; print(str(json.load(sys.stdin).get('initialized','unknown')).lower())" 2>/dev/null || echo "unknown")
     debug "BAO_INITIALIZED=${BAO_INITIALIZED}"
 
     if [ "$BAO_INITIALIZED" = "false" ]; then
@@ -366,8 +366,8 @@ if [ -n "$BAO_CONTAINER" ]; then
         debug "INIT_OUTPUT (first 200 chars): ${INIT_OUTPUT:0:200}"
 
         if [ -n "$INIT_OUTPUT" ]; then
-            UNSEAL_KEY=$(echo "$INIT_OUTPUT" | grep -o '"unseal_keys_b64":\["[^"]*"' | sed 's/.*\["//' | sed 's/"//')
-            ROOT_TOKEN=$(echo "$INIT_OUTPUT" | grep -o '"root_token":"[^"]*"' | sed 's/"root_token":"//' | sed 's/"//')
+            UNSEAL_KEY=$(echo "$INIT_OUTPUT" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d['unseal_keys_b64'][0])" 2>/dev/null || true)
+            ROOT_TOKEN=$(echo "$INIT_OUTPUT" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d['root_token'])" 2>/dev/null || true)
             debug "UNSEAL_KEY=${UNSEAL_KEY:+present} ROOT_TOKEN=${ROOT_TOKEN:+present}"
 
             if [ -n "$UNSEAL_KEY" ] && [ -n "$ROOT_TOKEN" ]; then
@@ -397,7 +397,7 @@ if [ -n "$BAO_CONTAINER" ]; then
         fi
     elif [ "$BAO_INITIALIZED" = "true" ]; then
         # Already initialized — try to unseal if sealed
-        BAO_SEALED=$(echo "$BAO_STATUS" | grep -o '"sealed": *[a-z]*' | awk '{print $NF}' || echo "true")
+        BAO_SEALED=$(echo "$BAO_STATUS" | python3 -c "import sys,json; print(str(json.load(sys.stdin).get('sealed',True)).lower())" 2>/dev/null || echo "true")
         if [ "$BAO_SEALED" = "true" ]; then
             UNSEAL_KEY=$(grep '^OPENBAO_UNSEAL_KEY=' .env 2>/dev/null | cut -d= -f2 || true)
             if [ -n "$UNSEAL_KEY" ]; then
