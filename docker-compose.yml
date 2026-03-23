@@ -65,8 +65,6 @@ services:
   openbao:
     image: openbao/openbao:2.5.0
     restart: unless-stopped
-    cap_add:
-      - IPC_LOCK
     environment:
       BAO_ADDR: http://127.0.0.1:8200
       OPENBAO_UNSEAL_KEY: ${OPENBAO_UNSEAL_KEY:-}
