@@ -329,10 +329,6 @@ $COMPOSE_CMD up -d 2>&1 || true
 # ── Initialize OpenBao (must happen before retry so healthcheck passes) ──
 header "Initializing OpenBao vault..."
 
-# Detach stdin so docker exec doesn't consume installer's piped input
-exec 3<&0
-exec 0</dev/null
-
 # Wait for OpenBao container to accept connections
 # Note: bao status returns exit code 2 when sealed (not 0), so we check output instead
 BAO_CONTAINER=""
@@ -406,10 +402,6 @@ if [ -n "$BAO_CONTAINER" ]; then
         warn "Could not determine OpenBao state — check: docker logs $BAO_CONTAINER"
     fi
 fi
-
-# Restore stdin
-exec 0<&3
-exec 3<&-
 
 # ── Retry — now that OpenBao is unsealed, API and dependents can start ──
 header "Starting remaining services..."
