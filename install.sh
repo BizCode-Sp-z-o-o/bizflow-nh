@@ -502,7 +502,11 @@ if [ "$MODE" = "prod" ]; then
     echo ""
     echo -e "  ${YELLOW}Configure these proxy hosts:${NC}"
     echo -e "    ${BOLD}${DASHBOARD_DOMAIN}${NC}  →  dashboard:4322  (+ SSL)"
-    echo -e "    ${BOLD}${API_DOMAIN}${NC}  →  api:8080  (+ SSL + Websockets)"
+    echo -e "    ${BOLD}${API_DOMAIN}${NC}  →  api:8080  (+ SSL)"
+    echo ""
+    echo -e "  ${YELLOW}For API proxy host, add Custom Nginx Configuration:${NC}"
+    echo -e "    proxy_set_header Upgrade \$http_upgrade;"
+    echo -e "    proxy_set_header Connection \"upgrade\";"
 fi
 
 if [ "$ENABLE_MONITORING" = "true" ]; then
