@@ -326,25 +326,23 @@ info "Images pulled"
 header "Starting BizFlow NH..."
 $COMPOSE_CMD up -d 2>&1 || true
 
-# Wait for health dependencies, then retry failed containers
-echo -e "\n  Waiting for services to become healthy..."
-for i in $(seq 1 12); do
-    UNHEALTHY=$($COMPOSE_CMD ps --format '{{.State}}' 2>/dev/null | grep -cv "running" || true)
-    if [ "$UNHEALTHY" -eq 0 ]; then
-        break
+# ── Initialize OpenBao (must happen before retry so healthcheck passes) ──
+header "Initializing OpenBao vault..."
+
+# Wait for OpenBao container to be running
+BAO_CONTAINER=""
+for i in $(seq 1 15); do
+    BAO_CONTAINER=$($COMPOSE_CMD ps --format '{{.Name}}' 2>/dev/null | grep openbao || true)
+    if [ -n "$BAO_CONTAINER" ]; then
+        # Wait for it to accept connections (sealed is OK, just needs to listen)
+        if docker exec "$BAO_CONTAINER" bao status -address=http://127.0.0.1:8200 >/dev/null 2>&1; then
+            break
+        fi
     fi
-    echo -ne "\r  Waiting... ${i}/12 ($UNHEALTHY not ready) "
-    sleep 5
+    echo -ne "\r  Waiting for OpenBao... ${i}/15 "
+    sleep 3
 done
 echo ""
-
-# Retry — picks up containers that failed due to dependency timing
-$COMPOSE_CMD up -d 2>&1 || true
-
-# ── Initialize OpenBao (first run only) ──
-header "Initializing OpenBao vault..."
-sleep 5
-BAO_CONTAINER=$($COMPOSE_CMD ps --format '{{.Name}}' 2>/dev/null | grep openbao || true)
 if [ -n "$BAO_CONTAINER" ]; then
     # Check if already initialized
     BAO_STATUS=$(docker exec "$BAO_CONTAINER" bao status -address=http://127.0.0.1:8200 -format=json 2>/dev/null || echo '{}')
@@ -402,9 +400,24 @@ if [ -n "$BAO_CONTAINER" ]; then
     fi
 fi
 
+# ── Retry — now that OpenBao is unsealed, API and dependents can start ──
+header "Starting remaining services..."
+$COMPOSE_CMD up -d 2>&1 || true
+
+echo -e "\n  Waiting for all services..."
+for i in $(seq 1 12); do
+    UNHEALTHY=$($COMPOSE_CMD ps --format '{{.State}}' 2>/dev/null | grep -cv "running" || true)
+    if [ "$UNHEALTHY" -eq 0 ]; then
+        break
+    fi
+    echo -ne "\r  Waiting... ${i}/12 ($UNHEALTHY not ready) "
+    sleep 5
+done
+echo ""
+
 # ── Verify ──
 header "Verifying services..."
-sleep 5
+sleep 3
 FAILED=0
 RUNNING=0
 while IFS= read -r line; do
