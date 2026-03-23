@@ -17,10 +17,42 @@ if [ "$(cat .mode 2>/dev/null)" = "prod" ]; then
     COMPOSE_CMD="$COMPOSE_CMD -f docker-compose.prod.yml"
 fi
 
+# Auto-unseal OpenBao after start
+unseal_openbao() {
+    local UNSEAL_KEY
+    UNSEAL_KEY=$(grep '^OPENBAO_UNSEAL_KEY=' .env 2>/dev/null | cut -d= -f2 || true)
+    if [ -z "$UNSEAL_KEY" ]; then
+        return
+    fi
+
+    local BAO_CONTAINER
+    BAO_CONTAINER=$($COMPOSE_CMD ps --format '{{.Name}}' 2>/dev/null | grep openbao || true)
+    if [ -z "$BAO_CONTAINER" ]; then
+        return
+    fi
+
+    # Wait for container to be ready
+    for i in $(seq 1 10); do
+        if docker exec "$BAO_CONTAINER" bao status -address=http://127.0.0.1:8200 >/dev/null 2>&1; then
+            break
+        fi
+        sleep 2
+    done
+
+    local BAO_SEALED
+    BAO_SEALED=$(docker exec "$BAO_CONTAINER" bao status -address=http://127.0.0.1:8200 -format=json 2>/dev/null | grep -o '"sealed":[a-z]*' | cut -d: -f2 || echo "unknown")
+
+    if [ "$BAO_SEALED" = "true" ]; then
+        docker exec "$BAO_CONTAINER" bao operator unseal -address=http://127.0.0.1:8200 "$UNSEAL_KEY" >/dev/null 2>&1
+        echo "OpenBao unsealed."
+    fi
+}
+
 case "${1:-help}" in
     start)
         echo "Starting BizFlow NH..."
         $COMPOSE_CMD up -d
+        unseal_openbao
         ;;
     stop)
         echo "Stopping BizFlow NH..."
@@ -30,6 +62,7 @@ case "${1:-help}" in
         echo "Restarting BizFlow NH..."
         $COMPOSE_CMD down
         $COMPOSE_CMD up -d
+        unseal_openbao
         ;;
     status)
         $COMPOSE_CMD ps
@@ -45,6 +78,7 @@ case "${1:-help}" in
         $COMPOSE_CMD pull
         echo "Recreating containers..."
         $COMPOSE_CMD up -d --remove-orphans
+        unseal_openbao
         echo "Update complete."
         ;;
     backup)

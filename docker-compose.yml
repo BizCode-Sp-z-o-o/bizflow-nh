@@ -68,11 +68,13 @@ services:
     cap_add:
       - IPC_LOCK
     environment:
-      BAO_DEV_ROOT_TOKEN_ID: ${OPENBAO_TOKEN:-dev-only-token}
-      BAO_DEV_LISTEN_ADDRESS: 0.0.0.0:8200
-    command: server -dev
+      BAO_ADDR: http://127.0.0.1:8200
+      OPENBAO_UNSEAL_KEY: ${OPENBAO_UNSEAL_KEY:-}
+    entrypoint: /openbao/scripts/entrypoint.sh
     volumes:
       - openbao_data:/openbao/data
+      - ./openbao-config.hcl:/openbao/config/config.hcl:ro
+      - ./openbao-entrypoint.sh:/openbao/scripts/entrypoint.sh:ro
     healthcheck:
       test: ["CMD-SHELL", "bao status -address=http://127.0.0.1:8200 2>&1 | grep -q 'Sealed.*false' || wget -q --spider http://127.0.0.1:8200/v1/sys/health"]
       interval: 10s

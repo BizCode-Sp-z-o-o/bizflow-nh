@@ -341,6 +341,67 @@ echo ""
 # Retry — picks up containers that failed due to dependency timing
 $COMPOSE_CMD up -d 2>&1 || true
 
+# ── Initialize OpenBao (first run only) ──
+header "Initializing OpenBao vault..."
+sleep 5
+BAO_CONTAINER=$($COMPOSE_CMD ps --format '{{.Name}}' 2>/dev/null | grep openbao || true)
+if [ -n "$BAO_CONTAINER" ]; then
+    # Check if already initialized
+    BAO_STATUS=$(docker exec "$BAO_CONTAINER" bao status -address=http://127.0.0.1:8200 -format=json 2>/dev/null || echo '{}')
+    BAO_INITIALIZED=$(echo "$BAO_STATUS" | grep -o '"initialized":[a-z]*' | cut -d: -f2 || echo "false")
+
+    if [ "$BAO_INITIALIZED" = "false" ]; then
+        # Initialize with 1 key share, 1 threshold (simple setup)
+        INIT_OUTPUT=$(docker exec "$BAO_CONTAINER" bao operator init \
+            -address=http://127.0.0.1:8200 \
+            -key-shares=1 -key-threshold=1 -format=json 2>/dev/null || echo '')
+
+        if [ -n "$INIT_OUTPUT" ]; then
+            UNSEAL_KEY=$(echo "$INIT_OUTPUT" | grep -o '"unseal_keys_b64":\["[^"]*"' | sed 's/.*\["//' | sed 's/"//')
+            ROOT_TOKEN=$(echo "$INIT_OUTPUT" | grep -o '"root_token":"[^"]*"' | sed 's/"root_token":"//' | sed 's/"//')
+
+            if [ -n "$UNSEAL_KEY" ] && [ -n "$ROOT_TOKEN" ]; then
+                # Unseal
+                docker exec "$BAO_CONTAINER" bao operator unseal -address=http://127.0.0.1:8200 "$UNSEAL_KEY" >/dev/null 2>&1
+
+                # Enable KV secrets engine
+                docker exec -e BAO_TOKEN="$ROOT_TOKEN" "$BAO_CONTAINER" \
+                    bao secrets enable -address=http://127.0.0.1:8200 -path=kv -version=2 kv >/dev/null 2>&1 || true
+
+                # Save to .env
+                sed -i "s|^OPENBAO_TOKEN=.*|OPENBAO_TOKEN=${ROOT_TOKEN}|" .env
+                echo "" >> .env
+                echo "# ── OpenBao Unseal (KEEP SECRET) ──" >> .env
+                echo "OPENBAO_UNSEAL_KEY=${UNSEAL_KEY}" >> .env
+
+                # Update token in running API container
+                OPENBAO_TOKEN="$ROOT_TOKEN"
+
+                info "OpenBao initialized and unsealed"
+                info "Root token and unseal key saved to .env"
+            else
+                warn "OpenBao init returned unexpected output — check manually"
+            fi
+        else
+            warn "OpenBao init failed — check: docker logs $BAO_CONTAINER"
+        fi
+    else
+        # Already initialized — try to unseal if sealed
+        BAO_SEALED=$(echo "$BAO_STATUS" | grep -o '"sealed":[a-z]*' | cut -d: -f2 || echo "true")
+        if [ "$BAO_SEALED" = "true" ]; then
+            UNSEAL_KEY=$(grep '^OPENBAO_UNSEAL_KEY=' .env 2>/dev/null | cut -d= -f2 || true)
+            if [ -n "$UNSEAL_KEY" ]; then
+                docker exec "$BAO_CONTAINER" bao operator unseal -address=http://127.0.0.1:8200 "$UNSEAL_KEY" >/dev/null 2>&1
+                info "OpenBao unsealed"
+            else
+                warn "OpenBao is sealed but no unseal key found in .env"
+            fi
+        else
+            info "OpenBao already initialized and unsealed"
+        fi
+    fi
+fi
+
 # ── Verify ──
 header "Verifying services..."
 sleep 5
