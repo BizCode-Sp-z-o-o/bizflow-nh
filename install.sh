@@ -204,16 +204,22 @@ fi
 header "Generating secrets..."
 POSTGRES_PASSWORD="bizflownh-pg-$(openssl rand -hex 8)"
 RABBITMQ_PASSWORD="bizflownh-rmq-$(openssl rand -hex 8)"
+REDIS_PASSWORD="bizflownh-redis-$(openssl rand -hex 8)"
 JWT_KEY="$(openssl rand -base64 48)"
 OPENBAO_TOKEN="dev-$(openssl rand -hex 12)"
 MINIO_ACCESS_KEY="bizflownh-$(openssl rand -hex 6)"
 MINIO_SECRET_KEY="$(openssl rand -base64 32)"
+GRAFANA_PASSWORD="bizflownh-gf-$(openssl rand -hex 8)"
+DOZZLE_PASSWORD="bizflownh-dz-$(openssl rand -hex 8)"
 
 info "PostgreSQL password generated"
 info "RabbitMQ password generated"
+info "Redis password generated"
 info "JWT key generated"
 info "OpenBao token generated"
 info "MinIO credentials generated"
+info "Grafana password generated"
+info "Dozzle password generated"
 
 # ── Generate .env ──
 header "Generating configuration..."
@@ -232,6 +238,9 @@ POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
 # ── RabbitMQ ──
 RABBITMQ_USER=bizflownh
 RABBITMQ_PASSWORD=${RABBITMQ_PASSWORD}
+
+# ── Redis ──
+REDIS_PASSWORD=${REDIS_PASSWORD}
 
 # ── JWT ──
 JWT_KEY=${JWT_KEY}
@@ -266,11 +275,28 @@ WATCHTOWER_INTERVAL=300
 # ── Monitoring ──
 ENABLE_MONITORING=${ENABLE_MONITORING}
 GRAFANA_PORT=3001
-GRAFANA_URL=${GRAFANA_URL:-http://localhost:3001}
+GRAFANA_PASSWORD=${GRAFANA_PASSWORD}
 DOZZLE_PORT=3002
+DOZZLE_PASSWORD=${DOZZLE_PASSWORD}
 ENVFILE
 
 info ".env generated"
+
+# ── Generate Dozzle users file with random password ──
+if [ "$ENABLE_MONITORING" = "true" ]; then
+    DOZZLE_HASH=$(docker run --rm httpd:2-alpine htpasswd -nbBC 11 "" "$DOZZLE_PASSWORD" 2>/dev/null | cut -d: -f2 || true)
+    if [ -n "$DOZZLE_HASH" ]; then
+        cat > monitoring/dozzle-users.yml << EOF
+users:
+  admin:
+    name: "Admin"
+    password: "${DOZZLE_HASH}"
+EOF
+        info "Dozzle users file generated"
+    else
+        warn "Could not generate Dozzle bcrypt hash — using default password 'admin'"
+    fi
+fi
 
 # ── Compose command ──
 COMPOSE_CMD="docker compose"
@@ -347,8 +373,21 @@ if [ "$MODE" = "prod" ]; then
     echo -e "    docs.${BASE_DOMAIN}  →  docs:4323"
 fi
 if [ "$ENABLE_MONITORING" = "true" ]; then
-    echo -e "  Grafana:    ${GREEN}http://localhost:${GRAFANA_PORT:-3001}${NC}  (admin / admin)"
-    echo -e "  Dozzle:     ${GREEN}http://localhost:${DOZZLE_PORT:-3002}${NC}  (admin / admin)"
+    echo ""
+    echo -e "${BOLD}Monitoring:${NC}"
+    echo -e "  Grafana:    ${GREEN}http://localhost:${GRAFANA_PORT:-3001}${NC}"
+    echo -e "              Login: admin / ${GRAFANA_PASSWORD}"
+    echo -e "  Dozzle:     ${GREEN}http://localhost:${DOZZLE_PORT:-3002}${NC}"
+    echo -e "              Login: admin / ${DOZZLE_PASSWORD}"
+    if [ "$MODE" = "prod" ]; then
+        echo ""
+        echo -e "  ${YELLOW}Monitoring is bound to 127.0.0.1 (localhost only).${NC}"
+        echo -e "  ${YELLOW}Access remotely via SSH tunnel:${NC}"
+        echo -e "    ssh -L 3001:127.0.0.1:${GRAFANA_PORT:-3001} -L 3002:127.0.0.1:${DOZZLE_PORT:-3002} user@server"
+        echo -e "  ${YELLOW}Or configure NPM proxy hosts:${NC}"
+        echo -e "    monitoring.${BASE_DOMAIN}  →  grafana:3000"
+        echo -e "    logs.${BASE_DOMAIN}        →  dozzle:8080"
+    fi
 fi
 echo ""
 echo -e "${BOLD}Default login:${NC}"

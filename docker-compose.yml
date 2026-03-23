@@ -20,10 +20,11 @@ services:
   redis:
     image: redis:7-alpine
     restart: unless-stopped
+    command: redis-server --requirepass ${REDIS_PASSWORD:-changeme}
     volumes:
       - redisdata:/data
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-changeme}", "ping"]
       interval: 5s
       timeout: 3s
       retries: 5
@@ -42,6 +43,7 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 30s
 
   # ── Object Storage ────────────────────────────────────
   minio:
@@ -94,6 +96,7 @@ services:
       Cors__FrontendUrls__1: ${DASHBOARD_URL:-http://localhost:4322}
       KSeF__BaseUrl: ${KSEF_BASE_URL:-https://ksef-test.mf.gov.pl}
       Pdf__SidecarUrl: http://pdf-sidecar:3100
+      Redis__ConnectionString: "redis:6379,password=${REDIS_PASSWORD:-changeme}"
       RabbitMQ__Host: rabbitmq
       RabbitMQ__Username: ${RABBITMQ_USER:-bizflownh}
       RabbitMQ__Password: ${RABBITMQ_PASSWORD}
