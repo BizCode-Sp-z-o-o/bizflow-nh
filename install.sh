@@ -142,6 +142,12 @@ DAEMON
 
 # ── Prerequisites ──
 header "Checking prerequisites..."
+
+# Require root — Docker socket, port binding, and secret management need it
+if [ "$(id -u)" -ne 0 ]; then
+    error "This installer must be run as root. Use: sudo ./install.sh"
+fi
+
 if ! command -v docker >/dev/null 2>&1; then
     warn "Docker is not installed."
     ask INSTALL_DOCKER "Install Docker automatically? (y/n)" "y"
