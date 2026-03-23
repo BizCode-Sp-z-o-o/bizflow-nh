@@ -185,19 +185,22 @@ echo "$ACR_PASSWORD" | docker login bizcode.azurecr.io -u "$ACR_USERNAME" --pass
     || error "ACR login failed. Please check your credentials."
 info "ACR login successful"
 
-# ── Frontend URLs ──
-header "Frontend URLs (for CORS and links)"
+# ── URLs ──
+header "Application URLs"
 if [ "$MODE" = "prod" ]; then
-    ask BASE_DOMAIN "Base domain (e.g. bizflow.klient.pl)" ""
+    ask DASHBOARD_DOMAIN "Dashboard domain (e.g. bizflow.klient.pl)" ""
+    ask API_DOMAIN "API domain" "api.${DASHBOARD_DOMAIN}"
     ask LETSENCRYPT_EMAIL "Email for Let's Encrypt" ""
-    DASHBOARD_URL="https://${BASE_DOMAIN}"
-    LANDING_URL="https://${BASE_DOMAIN}"
-    info "Dashboard will be available at $DASHBOARD_URL"
+    DASHBOARD_URL="https://${DASHBOARD_DOMAIN}"
+    API_URL="https://${API_DOMAIN}"
+    info "Dashboard: $DASHBOARD_URL"
+    info "API:       $API_URL"
 else
-    ask DASHBOARD_URL "Dashboard URL" "http://localhost:4322"
-    LANDING_URL="$DASHBOARD_URL"
-    BASE_DOMAIN=""
+    DASHBOARD_DOMAIN=""
+    API_DOMAIN=""
     LETSENCRYPT_EMAIL=""
+    DASHBOARD_URL="http://localhost:4322"
+    API_URL="http://localhost:5001"
 fi
 
 # ── Generate secrets ──
@@ -257,17 +260,17 @@ MINIO_SECRET_KEY=${MINIO_SECRET_KEY}
 
 # ── Mode ──
 MODE=${MODE}
-BASE_DOMAIN=${BASE_DOMAIN}
+DASHBOARD_DOMAIN=${DASHBOARD_DOMAIN}
+API_DOMAIN=${API_DOMAIN}
 LETSENCRYPT_EMAIL=${LETSENCRYPT_EMAIL}
 
-# ── Frontend ──
+# ── URLs ──
 DASHBOARD_URL=${DASHBOARD_URL}
-LANDING_URL=${LANDING_URL}
+API_URL=${API_URL}
 
-# ── Ports ──
+# ── Ports (dev mode only — prod uses NPM) ──
 API_PORT=5001
 DASHBOARD_PORT=4322
-DOCS_PORT=4323
 
 # ── Auto-update (seconds, 0=disabled) ──
 WATCHTOWER_INTERVAL=300
@@ -349,51 +352,70 @@ fi
 
 # ── Wait for API to be ready ──
 header "Waiting for API..."
-for i in $(seq 1 30); do
-    if curl -sf "http://localhost:${API_PORT:-5001}/health" >/dev/null 2>&1; then
-        info "API is ready"
-        break
-    fi
-    sleep 2
-done
+if [ "$MODE" = "prod" ]; then
+    # In prod, API port is not exposed — check via docker exec
+    for i in $(seq 1 30); do
+        if $COMPOSE_CMD exec -T api wget -q --spider http://localhost:8080/health 2>/dev/null; then
+            info "API is ready"
+            break
+        fi
+        sleep 2
+    done
+else
+    for i in $(seq 1 30); do
+        if curl -sf "http://localhost:${API_PORT:-5001}/health" >/dev/null 2>&1; then
+            info "API is ready"
+            break
+        fi
+        sleep 2
+    done
+fi
 
 # ── Summary ──
 header "Installation complete!"
 echo ""
-echo -e "${BOLD}Services:${NC}"
-echo -e "  Dashboard:  ${GREEN}${DASHBOARD_URL}${NC}"
-echo -e "  API:        ${GREEN}http://localhost:${API_PORT:-5001}${NC}"
-echo -e "  Docs:       ${GREEN}http://localhost:${DOCS_PORT:-4323}${NC}"
+echo -e "${BOLD}Application:${NC}"
 if [ "$MODE" = "prod" ]; then
-    echo -e "  NPM:        ${GREEN}http://localhost:81${NC}  (admin@example.com / changeme)"
-    echo ""
-    echo -e "  ${YELLOW}Configure proxy hosts in Nginx Proxy Manager:${NC}"
-    echo -e "    ${BASE_DOMAIN}       →  dashboard:4322"
-    echo -e "    api.${BASE_DOMAIN}   →  api:8080"
-    echo -e "    docs.${BASE_DOMAIN}  →  docs:4323"
-fi
-if [ "$ENABLE_MONITORING" = "true" ]; then
-    echo ""
-    echo -e "${BOLD}Monitoring:${NC}"
-    echo -e "  Grafana:    ${GREEN}http://localhost:${GRAFANA_PORT:-3001}${NC}"
-    echo -e "              Login: admin / ${GRAFANA_PASSWORD}"
-    echo -e "  Dozzle:     ${GREEN}http://localhost:${DOZZLE_PORT:-3002}${NC}"
-    echo -e "              Login: admin / ${DOZZLE_PASSWORD}"
-    if [ "$MODE" = "prod" ]; then
-        echo ""
-        echo -e "  ${YELLOW}Monitoring is bound to 127.0.0.1 (localhost only).${NC}"
-        echo -e "  ${YELLOW}Access remotely via SSH tunnel:${NC}"
-        echo -e "    ssh -L 3001:127.0.0.1:${GRAFANA_PORT:-3001} -L 3002:127.0.0.1:${DOZZLE_PORT:-3002} user@server"
-        echo -e "  ${YELLOW}Or configure NPM proxy hosts:${NC}"
-        echo -e "    monitoring.${BASE_DOMAIN}  →  grafana:3000"
-        echo -e "    logs.${BASE_DOMAIN}        →  dozzle:8080"
-    fi
+    echo -e "  Dashboard:  ${GREEN}${DASHBOARD_URL}${NC}"
+    echo -e "  API:        ${GREEN}${API_URL}${NC}"
+else
+    echo -e "  Dashboard:  ${GREEN}http://localhost:${DASHBOARD_PORT:-4322}${NC}"
+    echo -e "  API:        ${GREEN}http://localhost:${API_PORT:-5001}${NC}"
 fi
 echo ""
 echo -e "${BOLD}Default login:${NC}"
 echo -e "  Email:    ${GREEN}admin@bizflownh.dev${NC}"
 echo -e "  Password: ${GREEN}Admin123!${NC}"
 echo -e "  ${YELLOW}Change the password after first login!${NC}"
+
+if [ "$MODE" = "prod" ]; then
+    echo ""
+    echo -e "${BOLD}Nginx Proxy Manager (admin panel):${NC}"
+    echo -e "  ${GREEN}ssh -L 81:127.0.0.1:81 user@server${NC}"
+    echo -e "  Then open ${GREEN}http://localhost:81${NC} in your browser"
+    echo -e "  First login: admin@example.com / changeme"
+    echo ""
+    echo -e "  ${YELLOW}Configure these proxy hosts:${NC}"
+    echo -e "    ${BOLD}${DASHBOARD_DOMAIN}${NC}  →  dashboard:4322  (+ SSL)"
+    echo -e "    ${BOLD}${API_DOMAIN}${NC}  →  api:8080  (+ SSL + Websockets)"
+fi
+
+if [ "$ENABLE_MONITORING" = "true" ]; then
+    echo ""
+    echo -e "${BOLD}Monitoring (localhost only):${NC}"
+    echo -e "  Grafana:  admin / ${GREEN}${GRAFANA_PASSWORD}${NC}"
+    echo -e "  Dozzle:   admin / ${GREEN}${DOZZLE_PASSWORD}${NC}"
+    if [ "$MODE" = "prod" ]; then
+        echo ""
+        echo -e "  ${YELLOW}Access via SSH tunnel:${NC}"
+        echo -e "  ${GREEN}ssh -L 3001:127.0.0.1:${GRAFANA_PORT:-3001} -L 3002:127.0.0.1:${DOZZLE_PORT:-3002} user@server${NC}"
+        echo -e "  Then: Grafana ${GREEN}http://localhost:3001${NC}  Dozzle ${GREEN}http://localhost:3002${NC}"
+    else
+        echo -e "  Grafana:  ${GREEN}http://localhost:${GRAFANA_PORT:-3001}${NC}"
+        echo -e "  Dozzle:   ${GREEN}http://localhost:${DOZZLE_PORT:-3002}${NC}"
+    fi
+fi
+
 echo ""
 echo -e "${BOLD}Management:${NC}"
 echo "  ./ctl.sh start    — Start all services"

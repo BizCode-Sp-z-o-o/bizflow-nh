@@ -1,25 +1,20 @@
 services:
-  # ── Override: remove direct port exposure in production ──
+  # ── Override: no direct port exposure in production ──
+  # All traffic goes through NPM (ports 80/443)
   api:
-    ports: !override
-      - "127.0.0.1:${API_PORT:-5001}:8080"
+    ports: !override []
 
   dashboard:
-    ports: !override
-      - "127.0.0.1:${DASHBOARD_PORT:-4322}:4322"
+    ports: !override []
 
-  docs:
-    ports: !override
-      - "127.0.0.1:${DOCS_PORT:-4323}:4323"
-
-  # ── Reverse Proxy (NPMplus) — SSL termination + domain routing ──
+  # ── Reverse Proxy (NPMplus with CrowdSec) ──
   npm:
     image: zoeyvid/npmplus:latest
     restart: unless-stopped
     ports:
       - "80:80"
       - "443:443"
-      - "81:81"
+      - "127.0.0.1:81:81"
     volumes:
       - npm_data:/data
     depends_on:

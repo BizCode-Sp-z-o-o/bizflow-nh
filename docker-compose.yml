@@ -92,8 +92,8 @@ services:
       Jwt__Key: ${JWT_KEY}
       Jwt__Issuer: BizFlowNH
       Jwt__Audience: BizFlowNH
-      Cors__FrontendUrls__0: ${LANDING_URL:-http://localhost:4321}
-      Cors__FrontendUrls__1: ${DASHBOARD_URL:-http://localhost:4322}
+      Cors__FrontendUrls__0: ${DASHBOARD_URL:-http://localhost:4322}
+      Cors__FrontendUrls__1: ${API_URL:-http://localhost:5001}
       KSeF__BaseUrl: ${KSEF_BASE_URL:-https://ksef-test.mf.gov.pl}
       Pdf__SidecarUrl: http://pdf-sidecar:3100
       Redis__ConnectionString: "redis:6379,password=${REDIS_PASSWORD:-changeme}"
@@ -142,13 +142,6 @@ services:
       - "${DASHBOARD_PORT:-4322}:4322"
     depends_on:
       - api
-
-  # ── Docs (Starlight) ──────────────────────────────────
-  docs:
-    image: bizcode.azurecr.io/bizflownh-docs:latest
-    restart: unless-stopped
-    ports:
-      - "${DOCS_PORT:-4323}:4323"
 
   # ── Auto-update ────────────────────────────────────────
   watchtower:
