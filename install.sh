@@ -395,8 +395,8 @@ if [ "$MODE" = "prod" ]; then
     echo ""
     echo -e "${BOLD}Nginx Proxy Manager (admin panel):${NC}"
     NPM_SERVER_IP=$(curl -sf --max-time 3 https://ifconfig.me 2>/dev/null || hostname -I 2>/dev/null | awk '{print $1}' || echo "server")
-    echo -e "  ${GREEN}ssh -L 81:127.0.0.1:81 user@${NPM_SERVER_IP}${NC}"
-    echo -e "  Then open ${GREEN}http://localhost:81${NC} in your browser"
+    echo -e "  ${GREEN}ssh -L 8181:127.0.0.1:81 user@${NPM_SERVER_IP}${NC}"
+    echo -e "  Then open ${GREEN}http://localhost:8181${NC} in your browser"
     echo -e "  First login: admin@example.com / changeme"
     echo ""
     echo -e "  ${YELLOW}Configure these proxy hosts:${NC}"
