@@ -43,7 +43,7 @@ services:
       interval: 10s
       timeout: 10s
       retries: 10
-      start_period: 40s
+      start_period: 60s
 
   # ── Object Storage ────────────────────────────────────
   minio:
