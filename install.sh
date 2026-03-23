@@ -10,12 +10,17 @@ BLUE="\033[0;34m"
 GREEN="\033[0;32m"
 YELLOW="\033[1;33m"
 RED="\033[0;31m"
+GRAY="\033[0;90m"
 NC="\033[0m"
+
+VERBOSE=false
+[[ "${1:-}" == "--verbose" || "${1:-}" == "-v" ]] && VERBOSE=true
 
 header() { echo -e "\n${BLUE}${BOLD}$1${NC}"; }
 info()   { echo -e "${GREEN}[OK]${NC} $1"; }
 warn()   { echo -e "${YELLOW}[!]${NC} $1"; }
 error()  { echo -e "${RED}[ERROR]${NC} $1"; exit 1; }
+debug()  { $VERBOSE && echo -e "${GRAY}     $1${NC}" || true; }
 
 ask() {
     local var=$1 prompt=$2 default=$3
@@ -334,9 +339,12 @@ header "Initializing OpenBao vault..."
 BAO_CONTAINER=""
 for i in $(seq 1 20); do
     BAO_CONTAINER=$($COMPOSE_CMD ps --format '{{.Name}}' 2>/dev/null | grep openbao || true)
+    debug "loop ${i}: BAO_CONTAINER=${BAO_CONTAINER:-empty}"
     if [ -n "$BAO_CONTAINER" ]; then
-        # bao status exits 2 when sealed — check for JSON output, not exit code
-        if docker exec "$BAO_CONTAINER" bao status -address=http://127.0.0.1:8200 -format=json < /dev/null 2>&1 | grep -q '"storage_type"'; then
+        BAO_PROBE=$(docker exec "$BAO_CONTAINER" bao status -address=http://127.0.0.1:8200 -format=json < /dev/null 2>&1 || true)
+        debug "bao status output (first 80 chars): ${BAO_PROBE:0:80}"
+        if echo "$BAO_PROBE" | grep -q '"storage_type"'; then
+            debug "storage_type found — OpenBao is listening"
             break
         fi
     fi
@@ -345,19 +353,22 @@ for i in $(seq 1 20); do
 done
 echo ""
 if [ -n "$BAO_CONTAINER" ]; then
-    # Check if already initialized (bao status returns json even when sealed, exit code 2)
     BAO_STATUS=$(docker exec "$BAO_CONTAINER" bao status -address=http://127.0.0.1:8200 -format=json < /dev/null 2>&1 || true)
+    debug "BAO_STATUS (first 200 chars): ${BAO_STATUS:0:200}"
     BAO_INITIALIZED=$(echo "$BAO_STATUS" | grep -o '"initialized":[a-z]*' | cut -d: -f2 || echo "unknown")
+    debug "BAO_INITIALIZED=${BAO_INITIALIZED}"
 
     if [ "$BAO_INITIALIZED" = "false" ]; then
-        # Initialize with 1 key share, 1 threshold (simple setup)
+        debug "Running bao operator init..."
         INIT_OUTPUT=$(docker exec "$BAO_CONTAINER" bao operator init \
             -address=http://127.0.0.1:8200 \
             -key-shares=1 -key-threshold=1 -format=json < /dev/null 2>&1 || echo '')
+        debug "INIT_OUTPUT (first 200 chars): ${INIT_OUTPUT:0:200}"
 
         if [ -n "$INIT_OUTPUT" ]; then
             UNSEAL_KEY=$(echo "$INIT_OUTPUT" | grep -o '"unseal_keys_b64":\["[^"]*"' | sed 's/.*\["//' | sed 's/"//')
             ROOT_TOKEN=$(echo "$INIT_OUTPUT" | grep -o '"root_token":"[^"]*"' | sed 's/"root_token":"//' | sed 's/"//')
+            debug "UNSEAL_KEY=${UNSEAL_KEY:+present} ROOT_TOKEN=${ROOT_TOKEN:+present}"
 
             if [ -n "$UNSEAL_KEY" ] && [ -n "$ROOT_TOKEN" ]; then
                 # Unseal
