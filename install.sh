@@ -220,6 +220,7 @@ POSTGRES_PASSWORD="bizflownh-pg-$(openssl rand -hex 8)"
 RABBITMQ_PASSWORD="bizflownh-rmq-$(openssl rand -hex 8)"
 REDIS_PASSWORD="bizflownh-redis-$(openssl rand -hex 8)"
 JWT_KEY="$(openssl rand -base64 48)"
+PDF_SIDECAR_TOKEN="$(openssl rand -base64 32)"
 OPENBAO_TOKEN="bao-$(openssl rand -hex 16)"
 MINIO_ACCESS_KEY="bizflownh-$(openssl rand -hex 6)"
 MINIO_SECRET_KEY="$(openssl rand -base64 32)"
@@ -230,6 +231,7 @@ info "PostgreSQL password generated"
 info "RabbitMQ password generated"
 info "Redis password generated"
 info "JWT key generated"
+info "PDF sidecar token generated"
 info "OpenBao token generated"
 info "MinIO credentials generated"
 info "Grafana password generated"
@@ -258,6 +260,9 @@ REDIS_PASSWORD=${REDIS_PASSWORD}
 
 # ── JWT ──
 JWT_KEY=${JWT_KEY}
+
+# ── PDF Sidecar (wspólny token wewnętrzny api ↔ pdf-sidecar) ──
+PDF_SIDECAR_TOKEN=${PDF_SIDECAR_TOKEN}
 
 # ── KSeF (default: test — change in dashboard per SAP company) ──
 KSEF_BASE_URL=https://ksef-test.mf.gov.pl

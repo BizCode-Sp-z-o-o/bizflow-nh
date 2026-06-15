@@ -96,6 +96,7 @@ services:
       Cors__FrontendUrls__1: ${API_URL:-http://localhost:5001}
       KSeF__BaseUrl: ${KSEF_BASE_URL:-https://ksef-test.mf.gov.pl}
       Pdf__SidecarUrl: http://pdf-sidecar:3100
+      Pdf__InternalToken: ${PDF_SIDECAR_TOKEN}
       RabbitMQ__Host: rabbitmq
       RabbitMQ__Username: ${RABBITMQ_USER:-bizflownh}
       RabbitMQ__Password: ${RABBITMQ_PASSWORD}
@@ -121,6 +122,8 @@ services:
   pdf-sidecar:
     image: bizcode.azurecr.io/bizflownh-pdf-sidecar:latest
     restart: unless-stopped
+    environment:
+      PDF_SIDECAR_TOKEN: ${PDF_SIDECAR_TOKEN}
     expose:
       - "3100"
     healthcheck:
